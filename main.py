@@ -1,159 +1,126 @@
 import streamlit as st
 import pandas as pd
+import numpy as np
 import io
+import os
+from datetime import datetime
 
-# -------------------------------
-# 🧠 App Configuration
-# -------------------------------
-st.set_page_config(
-    page_title="FillMate - Smart Excel Null Filler",
-    page_icon="🧩",
-    layout="wide",
-    initial_sidebar_state="expanded"
-)
+st.set_page_config(page_title="FillMate", layout="wide")
 
-# -------------------------------
-# 🎨 Custom CSS Styling
-# -------------------------------
-st.markdown("""
-    <style>
-        /* General page background and font */
-        body, .main {
-            background-color: #ffffff;
-            font-family: 'Inter', sans-serif;
-            color: #333333;
-        }
+# ========== Helper Functions ==========
 
-        /* Center main container */
-        .block-container {
-            max-width: 1000px;
-            margin: auto;
-            padding-top: 2rem;
-            padding-bottom: 2rem;
-        }
+def fill_null_values(df, method):
+    """Fill null values based on selected method."""
+    if method == "Forward Fill":
+        return df.ffill()
+    elif method == "Backward Fill":
+        return df.bfill()
+    elif method == "Closest Fill (Mean of Neighbors)":
+        return df.interpolate(method='linear', limit_direction='both')
+    else:
+        return df
 
-        /* Headings */
-        h1, h2, h3 {
-            text-align: center;
-            color: #2b2b2b;
-        }
+def save_analytics(num_nulls, num_filled, filename):
+    """Save analytics locally to CSV file."""
+    analytics_file = "analytics_log.csv"
+    data = {
+        "timestamp": [datetime.now().strftime("%Y-%m-%d %H:%M:%S")],
+        "file_name": [filename],
+        "total_nulls": [num_nulls],
+        "total_filled": [num_filled]
+    }
+    df_log = pd.DataFrame(data)
 
-        /* Upload section styling */
-        .stFileUploader {
-            border: 2px dashed #B0BEC5;
-            background: #FAFAFA;
-            border-radius: 10px;
-            padding: 1rem;
-        }
+    if os.path.exists(analytics_file):
+        df_log.to_csv(analytics_file, mode='a', header=False, index=False)
+    else:
+        df_log.to_csv(analytics_file, index=False)
 
-        /* Buttons */
-        div.stButton > button {
-            background-color: #1976D2;
-            color: white;
-            border-radius: 8px;
-            border: none;
-            font-size: 16px;
-            padding: 0.5rem 1rem;
-            transition: background-color 0.3s ease;
-        }
-        div.stButton > button:hover {
-            background-color: #0D47A1;
-        }
+def load_analytics():
+    """Load local analytics file."""
+    analytics_file = "analytics_log.csv"
+    if os.path.exists(analytics_file):
+        return pd.read_csv(analytics_file)
+    return pd.DataFrame(columns=["timestamp", "file_name", "total_nulls", "total_filled"])
 
-        /* Footer */
-        footer {
-            text-align: center;
-            color: #888888;
-            font-size: 13px;
-            margin-top: 3rem;
-        }
-    </style>
-""", unsafe_allow_html=True)
+def download_excel(df):
+    """Convert dataframe to Excel for download."""
+    output = io.BytesIO()
+    with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+        df.to_excel(writer, index=False, sheet_name='FilledData')
+    return output.getvalue()
 
-# -------------------------------
-# 🧩 App Header
-# -------------------------------
-st.title("🧩 FillMate")
-st.subheader("Smart Excel Missing-Value Detector & Filler")
+# ========== UI Layout ==========
 
-st.markdown("""
-Welcome to **FillMate** — your intelligent assistant for detecting and filling missing values in Excel or CSV datasets.  
-Upload your file, choose a filling strategy, and download your clean dataset within seconds.
-""")
+st.title("🧠 FillMate — Smart Null Value Handler")
+st.markdown("Effortlessly detect and fill missing data in Excel files with advanced options.")
 
-st.divider()
-
-# -------------------------------
-# 📂 File Upload
-# -------------------------------
-uploaded_file = st.file_uploader("Upload your Excel or CSV file", type=["xlsx", "csv"])
+uploaded_file = st.file_uploader("Upload your Excel file", type=["xlsx", "xls", "csv"])
 
 if uploaded_file:
-    # Detect file type and load
-    try:
-        if uploaded_file.name.endswith(".csv"):
-            df = pd.read_csv(uploaded_file)
-        else:
-            df = pd.read_excel(uploaded_file)
-    except Exception as e:
-        st.error(f"Error reading file: {e}")
-        st.stop()
+    # Load data
+    if uploaded_file.name.endswith(".csv"):
+        df = pd.read_csv(uploaded_file)
+    else:
+        df = pd.read_excel(uploaded_file)
 
-    st.success("✅ File uploaded successfully!")
-    st.write("### Preview of your data:")
+    st.subheader("📊 Uploaded Data Preview")
     st.dataframe(df.head())
 
-    # -------------------------------
-    # 🧮 Null Value Analysis
-    # -------------------------------
-    st.subheader("Null Value Analysis")
-    total_nulls = df.isnull().sum().sum()
-    st.write(f"🔍 **Total Missing Values:** {total_nulls}")
+    # Detect nulls
+    null_counts = df.isnull().sum()
+    total_nulls = null_counts.sum()
 
-    st.write("#### Missing values per column:")
-    st.dataframe(df.isnull().sum())
+    st.write(f"### ❌ Total Null Values: {total_nulls}")
+    st.write("#### Columns with Nulls:")
+    st.write(null_counts[null_counts > 0])
 
-    # -------------------------------
-    # ⚙️ Filling Options
-    # -------------------------------
-    st.subheader("Choose Filling Method")
-    method = st.selectbox(
-        "Select how you want to handle missing values:",
-        ["Forward Fill", "Backward Fill", "Nearest Value (Linear Interpolation)"]
-    )
+    # Fill method selection
+    st.markdown("---")
+    st.subheader("⚙️ Fill Missing Values")
+    fill_method = st.selectbox("Select a filling method:", 
+                               ["Forward Fill", "Backward Fill", "Closest Fill (Mean of Neighbors)"])
 
-    if st.button("🧠 Process & Fill Nulls"):
-        if method == "Forward Fill":
-            df_filled = df.fillna(method="ffill")
-        elif method == "Backward Fill":
-            df_filled = df.fillna(method="bfill")
-        else:
-            df_filled = df.interpolate(method="linear")
+    if st.button("Apply Fill"):
+        filled_df = fill_null_values(df, fill_method)
+        num_filled = filled_df.isnull().sum().sum()
+        save_analytics(total_nulls, num_filled, uploaded_file.name)
 
-        # Show updated preview
-        st.success("✅ Missing values have been filled successfully!")
-        st.write("### Preview after filling:")
-        st.dataframe(df_filled.head())
+        st.success(f"✅ Null values filled using {fill_method}")
+        st.dataframe(filled_df.head())
 
-        # -------------------------------
-        # 💾 Download Cleaned Data
-        # -------------------------------
-        buffer = io.BytesIO()
-        df_filled.to_excel(buffer, index=False, engine="openpyxl")
-        buffer.seek(0)
+        # Export section
+        st.markdown("### 💾 Download Processed File")
+        csv_data = filled_df.to_csv(index=False).encode('utf-8')
+        excel_data = download_excel(filled_df)
 
-        st.download_button(
-            label="📥 Download Cleaned Excel File",
-            data=buffer,
-            file_name="filled_data.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-        )
+        col1, col2 = st.columns(2)
+        with col1:
+            st.download_button("⬇️ Download CSV", data=csv_data, file_name="filled_data.csv", mime="text/csv")
+        with col2:
+            st.download_button("⬇️ Download Excel", data=excel_data, file_name="filled_data.xlsx")
 
-# -------------------------------
-# 🦶 Footer
-# -------------------------------
-st.markdown("""
-<footer>
-    Made with ❤️ by <b>Muhammad Haseeb</b> | FillMate © 2025  
-</footer>
-""", unsafe_allow_html=True)
+# ========== Analytics Dashboard ==========
+
+st.markdown("---")
+st.header("📈 FillMate Analytics Dashboard")
+
+analytics_df = load_analytics()
+
+if not analytics_df.empty:
+    st.dataframe(analytics_df)
+
+    st.metric("Total Files Processed", len(analytics_df))
+    st.metric("Total Nulls Detected", int(analytics_df["total_nulls"].sum()))
+    st.metric("Total Nulls Filled", int(analytics_df["total_filled"].sum()))
+
+    # Allow download of analytics report
+    csv_report = analytics_df.to_csv(index=False).encode('utf-8')
+    st.download_button("📊 Download Analytics CSV", data=csv_report, file_name="fillmate_analytics.csv", mime="text/csv")
+else:
+    st.info("No analytics data available yet. Upload and process some files to see insights!")
+
+# ========== Theme Toggle ==========
+
+st.markdown("---")
+st.markdown("🌙 **Theme Mode:** Use the Streamlit built-in theme switcher (top-right corner) to toggle Dark/Light Mode.")
