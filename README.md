@@ -1,32 +1,38 @@
 # 🧩 FillMate  
-**Smart Excel Missing-Value Detector & Filler**
+**Smart Excel Missing-Value Detector & Filler**  
+🌐 Live Demo → [https://fillmate-app.streamlit.app/](https://fillmate-app.streamlit.app/)
 
-FillMate is a minimalistic Python-powered web app that detects and fills missing values (nulls) in Excel files. It uses intelligent forward, backward, and nearest-neighbor algorithms to impute missing data and helps analysts quickly clean datasets.
+---
+
+## 🧠 Overview  
+FillMate is a minimalistic, AI-inspired web app that helps data professionals **detect and fill missing values (nulls)** in Excel or CSV datasets.  
+It supports multiple filling strategies — forward, backward, and nearest-value interpolation — to make your dataset analysis-ready in seconds.
 
 ---
 
 ## 🚀 Features
-- 📊 Upload any `.xlsx` or `.csv` file  
-- 🔍 View total null values and their locations  
-- 🧠 Choose how to fill missing values:
-  - **Forward Fill (ffill)** – uses previous values  
-  - **Backward Fill (bfill)** – uses next values  
-  - **Closest Value Algorithm** – fills using nearest non-null data points  
-- 💾 Download the cleaned Excel file  
-- 🌐 Simple, minimal UI built with **Streamlit**
+- 📂 **Upload Excel or CSV files** instantly  
+- 🔍 **View total nulls** and missing values per column  
+- 🧠 **Fill missing values intelligently:**
+  - **Forward Fill (ffill)** — use previous values  
+  - **Backward Fill (bfill)** — use next values  
+  - **Nearest Value (Linear Interpolation)** — estimate from surrounding values  
+- 💾 **Download the cleaned Excel file**  
+- 🎨 **Professional, minimalist interface** built with Streamlit  
+- 🌐 **Hosted Free on Streamlit Cloud**
 
 ---
 
 ## 🛠️ Technologies Used
 - **Python 3.x**
-- **Streamlit** — for the web interface  
-- **Pandas** — for data handling and filling logic  
-- **OpenPyXL** — for Excel file support  
-- **GitHub Pages + Streamlit Cloud** — for free hosting  
+- **Streamlit** — frontend + web hosting  
+- **Pandas** — data handling  
+- **OpenPyXL** — Excel file support  
+- **GitHub + Streamlit Cloud** — for versioning and deployment  
 
 ---
 
-## 📦 Installation & Local Setup
+## 📦 Installation (Local Setup)
 
 ### 1. Clone the Repository
 ```bash
