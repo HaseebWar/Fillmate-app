@@ -1,128 +1,159 @@
 import streamlit as st
 import pandas as pd
+import io
 
-# ---------------------------
-# App Configuration
-# ---------------------------
-st.set_page_config(page_title="FillMate | Excel Null Cleaner", layout="wide")
+# -------------------------------
+# 🧠 App Configuration
+# -------------------------------
+st.set_page_config(
+    page_title="FillMate - Smart Excel Null Filler",
+    page_icon="🧩",
+    layout="wide",
+    initial_sidebar_state="expanded"
+)
 
-# ---------------------------
-# Header Section
-# ---------------------------
-st.title("🧹 FillMate")
+# -------------------------------
+# 🎨 Custom CSS Styling
+# -------------------------------
 st.markdown("""
-### Smart Excel Null Value Cleaner
-Upload your Excel or CSV file to detect and handle missing values with intelligent filling algorithms.
-""")
+    <style>
+        /* General page background and font */
+        body, .main {
+            background-color: #ffffff;
+            font-family: 'Inter', sans-serif;
+            color: #333333;
+        }
 
-# Optional style for minimal look
-st.markdown("""
-<style>
-    body {
-        background-color: #f7f9fb;
-    }
-    .stApp {
-        background-color: #ffffff;
-        border-radius: 12px;
-        padding: 15px;
-    }
-</style>
+        /* Center main container */
+        .block-container {
+            max-width: 1000px;
+            margin: auto;
+            padding-top: 2rem;
+            padding-bottom: 2rem;
+        }
+
+        /* Headings */
+        h1, h2, h3 {
+            text-align: center;
+            color: #2b2b2b;
+        }
+
+        /* Upload section styling */
+        .stFileUploader {
+            border: 2px dashed #B0BEC5;
+            background: #FAFAFA;
+            border-radius: 10px;
+            padding: 1rem;
+        }
+
+        /* Buttons */
+        div.stButton > button {
+            background-color: #1976D2;
+            color: white;
+            border-radius: 8px;
+            border: none;
+            font-size: 16px;
+            padding: 0.5rem 1rem;
+            transition: background-color 0.3s ease;
+        }
+        div.stButton > button:hover {
+            background-color: #0D47A1;
+        }
+
+        /* Footer */
+        footer {
+            text-align: center;
+            color: #888888;
+            font-size: 13px;
+            margin-top: 3rem;
+        }
+    </style>
 """, unsafe_allow_html=True)
 
-# ---------------------------
-# File Upload
-# ---------------------------
-uploaded_file = st.file_uploader("📁 Upload your Excel or CSV file", type=["xlsx", "csv"])
+# -------------------------------
+# 🧩 App Header
+# -------------------------------
+st.title("🧩 FillMate")
+st.subheader("Smart Excel Missing-Value Detector & Filler")
 
-if uploaded_file is not None:
-    # Load data
+st.markdown("""
+Welcome to **FillMate** — your intelligent assistant for detecting and filling missing values in Excel or CSV datasets.  
+Upload your file, choose a filling strategy, and download your clean dataset within seconds.
+""")
+
+st.divider()
+
+# -------------------------------
+# 📂 File Upload
+# -------------------------------
+uploaded_file = st.file_uploader("Upload your Excel or CSV file", type=["xlsx", "csv"])
+
+if uploaded_file:
+    # Detect file type and load
     try:
         if uploaded_file.name.endswith(".csv"):
             df = pd.read_csv(uploaded_file)
         else:
             df = pd.read_excel(uploaded_file)
     except Exception as e:
-        st.error(f"❌ Error reading file: {e}")
+        st.error(f"Error reading file: {e}")
         st.stop()
 
-    st.subheader("📊 Null Value Summary")
+    st.success("✅ File uploaded successfully!")
+    st.write("### Preview of your data:")
+    st.dataframe(df.head())
 
-    # Calculate nulls
-    null_summary = df.isnull().sum().to_frame("Null Count")
-    null_summary["Null Percentage (%)"] = (df.isnull().sum() / len(df) * 100).round(2)
-    st.dataframe(null_summary, use_container_width=True)
+    # -------------------------------
+    # 🧮 Null Value Analysis
+    # -------------------------------
+    st.subheader("Null Value Analysis")
+    total_nulls = df.isnull().sum().sum()
+    st.write(f"🔍 **Total Missing Values:** {total_nulls}")
 
-    # Columns with missing values
-    cols_with_nulls = [col for col in df.columns if df[col].isnull().any()]
-    if cols_with_nulls:
-        st.info(f"Columns containing nulls: {', '.join(cols_with_nulls)}")
-    else:
-        st.success("✅ No missing values found!")
-    
-    st.divider()
+    st.write("#### Missing values per column:")
+    st.dataframe(df.isnull().sum())
 
-    # ---------------------------
-    # Fill Options
-    # ---------------------------
-    st.subheader("⚙️ Fill Missing Values")
-
-    fill_method = st.selectbox(
-        "Select a method to fill missing values:",
-        ["None", "Forward Fill", "Backward Fill", "Mean", "Median", "Mode", "Interpolation"]
+    # -------------------------------
+    # ⚙️ Filling Options
+    # -------------------------------
+    st.subheader("Choose Filling Method")
+    method = st.selectbox(
+        "Select how you want to handle missing values:",
+        ["Forward Fill", "Backward Fill", "Nearest Value (Linear Interpolation)"]
     )
 
-    if fill_method != "None":
-        df_filled = df.copy()
-
-        # Apply chosen fill method
-        if fill_method == "Forward Fill":
+    if st.button("🧠 Process & Fill Nulls"):
+        if method == "Forward Fill":
             df_filled = df.fillna(method="ffill")
-        elif fill_method == "Backward Fill":
+        elif method == "Backward Fill":
             df_filled = df.fillna(method="bfill")
-        elif fill_method == "Mean":
-            df_filled = df.fillna(df.mean(numeric_only=True))
-        elif fill_method == "Median":
-            df_filled = df.fillna(df.median(numeric_only=True))
-        elif fill_method == "Mode":
-            for col in df.columns:
-                try:
-                    mode_val = df[col].mode()[0]
-                    df_filled[col].fillna(mode_val, inplace=True)
-                except:
-                    pass
-        elif fill_method == "Interpolation":
-            df_filled = df.interpolate()
+        else:
+            df_filled = df.interpolate(method="linear")
 
-        st.success(f"✅ Missing values filled using **{fill_method}** method!")
+        # Show updated preview
+        st.success("✅ Missing values have been filled successfully!")
+        st.write("### Preview after filling:")
+        st.dataframe(df_filled.head())
 
-        st.subheader("📋 Cleaned Data Preview")
-        st.dataframe(df_filled.head(20), use_container_width=True)
+        # -------------------------------
+        # 💾 Download Cleaned Data
+        # -------------------------------
+        buffer = io.BytesIO()
+        df_filled.to_excel(buffer, index=False, engine="openpyxl")
+        buffer.seek(0)
 
-        # ---------------------------
-        # Download Cleaned Data
-        # ---------------------------
-        st.divider()
-        csv_data = df_filled.to_csv(index=False).encode("utf-8")
         st.download_button(
-            label="📥 Download Cleaned CSV File",
-            data=csv_data,
-            file_name="fillmate_cleaned_data.csv",
-            mime="text/csv"
+            label="📥 Download Cleaned Excel File",
+            data=buffer,
+            file_name="filled_data.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
 
-        st.caption("Tip: If Excel download is needed, save CSV as .xlsx in Excel later.")
-
-    st.divider()
-
-    # ---------------------------
-    # Extra Info
-    # ---------------------------
-    with st.expander("ℹ️ About FillMate"):
-        st.markdown("""
-        **FillMate** helps analysts and data engineers clean Excel datasets quickly.
-        - Detects and summarizes null values
-        - Offers statistical and algorithmic filling methods
-        - Simple, clean, and browser-based
-        """)
-else:
-    st.info("👆 Please upload an Excel or CSV file to begin.")
+# -------------------------------
+# 🦶 Footer
+# -------------------------------
+st.markdown("""
+<footer>
+    Made with ❤️ by <b>Muhammad Haseeb</b> | FillMate © 2025  
+</footer>
+""", unsafe_allow_html=True)
