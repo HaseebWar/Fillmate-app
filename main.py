@@ -9,50 +9,75 @@ import plotly.express as px
 # ----------------- PAGE CONFIG -----------------
 st.set_page_config(page_title="FillMate", layout="wide")
 
-# --- Theme Management ---
-if "theme" not in st.session_state:
-    st.session_state.theme = "light"
+# --- DARK MODE TOGGLE STATE ---
+if "dark_mode" not in st.session_state:
+    st.session_state.dark_mode = False
 
-# Theme colors
-def get_theme_colors():
-    if st.session_state.theme == "dark":
-        return {"bg": "#0e1117", "text": "#fafafa"}
+# --- DARK MODE STYLING FUNCTION ---
+def apply_theme():
+    """Apply dark or light theme using custom CSS."""
+    if st.session_state.dark_mode:
+        css = """
+        <style>
+        body, .stApp {
+            background-color: #000000 !important;
+            color: #ffffff !important;
+        }
+        .stButton>button {
+            background-color: #333333 !important;
+            color: #ffffff !important;
+            border: 1px solid #555555 !important;
+        }
+        .stSelectbox, .stFileUploader, .stDownloadButton, .stMetric {
+            color: #ffffff !important;
+        }
+        div[data-testid="stMarkdownContainer"], div[data-testid="stDataFrame"] {
+            color: #ffffff !important;
+        }
+        </style>
+        """
     else:
-        return {"bg": "#ffffff", "text": "#000000"}
+        css = """
+        <style>
+        body, .stApp {
+            background-color: #ffffff !important;
+            color: #000000 !important;
+        }
+        </style>
+        """
+    st.markdown(css, unsafe_allow_html=True)
 
-theme_colors = get_theme_colors()
+apply_theme()
 
-# --- Header with theme toggle ---
+# --- HEADER ---
 col1, col2 = st.columns([9, 1])
 with col1:
+    text_color = "#ffffff" if st.session_state.dark_mode else "#000000"
     st.markdown(
-        f"<h2 style='text-align:center; color:{theme_colors['text']};'>🧠 FillMate — Smart Null Value Handler</h2>",
+        f"<h3 style='text-align:center; color:{text_color};'>🧠 FillMate — Smart Null Value Handler</h3>",
         unsafe_allow_html=True,
     )
 with col2:
-    if st.button("🌙" if st.session_state.theme == "light" else "☀️"):
-        st.session_state.theme = "dark" if st.session_state.theme == "light" else "light"
+    if st.button("🌙" if not st.session_state.dark_mode else "☀️", key="mode_toggle"):
+        st.session_state.dark_mode = not st.session_state.dark_mode
         st.rerun()
 
 st.markdown(
-    f"<p style='text-align:center; color:{theme_colors['text']}; font-size:16px;'>Effortlessly detect and fill missing data in Excel or CSV files with advanced options.</p>",
+    f"<p style='text-align:center; color:{text_color}; font-size:15px;'>Detect, visualize, and fill missing values in Excel or CSV files — effortlessly.</p>",
     unsafe_allow_html=True,
 )
 
 # ----------------- FUNCTIONS -----------------
 def fill_null_values(df, method):
-    """Fill null values based on selected method."""
     if method == "Forward Fill":
         return df.ffill()
     elif method == "Backward Fill":
         return df.bfill()
     elif method == "Closest Fill (Mean of Neighbors)":
         return df.interpolate(method='linear', limit_direction='both')
-    else:
-        return df
+    return df
 
 def save_analytics(num_nulls, num_filled, filename):
-    """Save analytics locally to CSV file."""
     analytics_file = "analytics_log.csv"
     data = {
         "timestamp": [datetime.now().strftime("%Y-%m-%d %H:%M:%S")],
@@ -61,21 +86,18 @@ def save_analytics(num_nulls, num_filled, filename):
         "total_filled": [num_filled]
     }
     df_log = pd.DataFrame(data)
-
     if os.path.exists(analytics_file):
         df_log.to_csv(analytics_file, mode='a', header=False, index=False)
     else:
         df_log.to_csv(analytics_file, index=False)
 
 def load_analytics():
-    """Load local analytics file."""
     analytics_file = "analytics_log.csv"
     if os.path.exists(analytics_file):
         return pd.read_csv(analytics_file)
     return pd.DataFrame(columns=["timestamp", "file_name", "total_nulls", "total_filled"])
 
 def download_excel(df):
-    """Convert dataframe to Excel for download."""
     output = io.BytesIO()
     with pd.ExcelWriter(output, engine='openpyxl') as writer:
         df.to_excel(writer, index=False, sheet_name='FilledData')
@@ -85,7 +107,6 @@ def download_excel(df):
 uploaded_file = st.file_uploader("📂 Upload your Excel or CSV file", type=["xlsx", "xls", "csv"])
 
 if uploaded_file:
-    # Load data
     if uploaded_file.name.endswith(".csv"):
         df = pd.read_csv(uploaded_file)
     else:
@@ -94,7 +115,6 @@ if uploaded_file:
     st.subheader("📊 Uploaded Data Preview")
     st.dataframe(df.head())
 
-    # Detect nulls
     null_counts = df.isnull().sum()
     total_nulls = int(null_counts.sum())
 
@@ -102,10 +122,9 @@ if uploaded_file:
     st.write("#### Columns with Nulls:")
     st.write(null_counts[null_counts > 0])
 
-    # Fill method selection
     st.markdown("---")
     st.subheader("⚙️ Fill Missing Values")
-    fill_method = st.selectbox("Select a filling method:", 
+    fill_method = st.selectbox("Select a filling method:",
                                ["Forward Fill", "Backward Fill", "Closest Fill (Mean of Neighbors)"])
 
     if st.button("Apply Fill"):
@@ -116,7 +135,6 @@ if uploaded_file:
         st.success(f"✅ Null values filled using {fill_method}")
         st.dataframe(filled_df.head())
 
-        # Export section
         st.markdown("### 💾 Download Processed File")
         csv_data = filled_df.to_csv(index=False).encode('utf-8')
         excel_data = download_excel(filled_df)
@@ -127,11 +145,11 @@ if uploaded_file:
         with col2:
             st.download_button("⬇️ Download Excel", data=excel_data, file_name="filled_data.xlsx")
 
-        # 🔄 Instant Analytics Update with Charts
+        # --- LIVE ANALYTICS ---
         st.markdown("---")
-        st.header("📈 FillMate Analytics Dashboard (Live Update)")
-        analytics_df = load_analytics()
+        st.header("📈 FillMate Analytics Dashboard")
 
+        analytics_df = load_analytics()
         if not analytics_df.empty:
             total_files = len(analytics_df)
             total_nulls_detected = int(analytics_df["total_nulls"].sum())
@@ -142,10 +160,7 @@ if uploaded_file:
             col2.metric("Total Nulls Detected", total_nulls_detected)
             col3.metric("Total Nulls Filled", total_filled)
 
-            # --- Visualization Charts ---
-            st.markdown("#### 📊 Analytics Overview")
             chart_col1, chart_col2 = st.columns(2)
-
             with chart_col1:
                 fig_bar = px.bar(
                     analytics_df,
@@ -155,9 +170,9 @@ if uploaded_file:
                     title="Null Values per File"
                 )
                 fig_bar.update_layout(
-                    plot_bgcolor=theme_colors["bg"],
-                    paper_bgcolor=theme_colors["bg"],
-                    font=dict(color=theme_colors["text"])
+                    plot_bgcolor="#000000" if st.session_state.dark_mode else "#ffffff",
+                    paper_bgcolor="#000000" if st.session_state.dark_mode else "#ffffff",
+                    font=dict(color="#ffffff" if st.session_state.dark_mode else "#000000")
                 )
                 st.plotly_chart(fig_bar, use_container_width=True)
 
@@ -170,9 +185,9 @@ if uploaded_file:
                     title="Filled Values Over Time"
                 )
                 fig_line.update_layout(
-                    plot_bgcolor=theme_colors["bg"],
-                    paper_bgcolor=theme_colors["bg"],
-                    font=dict(color=theme_colors["text"])
+                    plot_bgcolor="#000000" if st.session_state.dark_mode else "#ffffff",
+                    paper_bgcolor="#000000" if st.session_state.dark_mode else "#ffffff",
+                    font=dict(color="#ffffff" if st.session_state.dark_mode else "#000000")
                 )
                 st.plotly_chart(fig_line, use_container_width=True)
         else:
