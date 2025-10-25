@@ -28,9 +28,6 @@ def apply_theme():
             color: #ffffff !important;
             border: 1px solid #555555 !important;
         }
-        .stSelectbox, .stFileUploader, .stDownloadButton, .stMetric {
-            color: #ffffff !important;
-        }
         div[data-testid="stMarkdownContainer"], div[data-testid="stDataFrame"] {
             color: #ffffff !important;
         }
@@ -155,39 +152,59 @@ if uploaded_file:
             total_nulls_detected = int(analytics_df["total_nulls"].sum())
             total_filled = int(analytics_df["total_filled"].sum())
 
+            st.markdown("### 📊 Analytics Overview")
             col1, col2, col3 = st.columns(3)
             col1.metric("Total Files Processed", total_files)
             col2.metric("Total Nulls Detected", total_nulls_detected)
             col3.metric("Total Nulls Filled", total_filled)
 
             chart_col1, chart_col2 = st.columns(2)
+
+            # --- Bar Chart ---
             with chart_col1:
                 fig_bar = px.bar(
                     analytics_df,
                     x="file_name",
                     y="total_nulls",
                     color="total_nulls",
-                    title="Null Values per File"
+                    title="📊 Null Values per File",
+                    text="total_nulls",
+                    color_continuous_scale="Blues"
                 )
+                fig_bar.update_traces(texttemplate='%{text}', textposition='outside')
                 fig_bar.update_layout(
+                    xaxis_title="Uploaded Files",
+                    yaxis_title="Number of Null Values",
                     plot_bgcolor="#000000" if st.session_state.dark_mode else "#ffffff",
                     paper_bgcolor="#000000" if st.session_state.dark_mode else "#ffffff",
-                    font=dict(color="#ffffff" if st.session_state.dark_mode else "#000000")
+                    font=dict(color="#ffffff" if st.session_state.dark_mode else "#000000", size=13),
+                    title=dict(x=0.5, xanchor='center'),
+                    showlegend=False,
+                    xaxis=dict(showgrid=True, gridcolor="gray", zeroline=False),
+                    yaxis=dict(showgrid=True, gridcolor="gray", zeroline=False)
                 )
                 st.plotly_chart(fig_bar, use_container_width=True)
 
+            # --- Line Chart ---
             with chart_col2:
                 fig_line = px.line(
                     analytics_df,
                     x="timestamp",
                     y="total_filled",
                     markers=True,
-                    title="Filled Values Over Time"
+                    title="📈 Filled Values Over Time",
+                    line_shape="spline"
                 )
+                fig_line.update_traces(marker=dict(size=8))
                 fig_line.update_layout(
+                    xaxis_title="Timestamp",
+                    yaxis_title="Filled Values",
                     plot_bgcolor="#000000" if st.session_state.dark_mode else "#ffffff",
                     paper_bgcolor="#000000" if st.session_state.dark_mode else "#ffffff",
-                    font=dict(color="#ffffff" if st.session_state.dark_mode else "#000000")
+                    font=dict(color="#ffffff" if st.session_state.dark_mode else "#000000", size=13),
+                    title=dict(x=0.5, xanchor='center'),
+                    xaxis=dict(showgrid=True, gridcolor="gray", zeroline=False),
+                    yaxis=dict(showgrid=True, gridcolor="gray", zeroline=False)
                 )
                 st.plotly_chart(fig_line, use_container_width=True)
         else:
