@@ -46,7 +46,7 @@ def load_analytics():
 def download_excel(df):
     """Convert dataframe to Excel for download."""
     output = io.BytesIO()
-    with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+    with pd.ExcelWriter(output, engine='openpyxl') as writer:
         df.to_excel(writer, index=False, sheet_name='FilledData')
     return output.getvalue()
 
@@ -124,3 +124,4 @@ else:
 
 st.markdown("---")
 st.markdown("🌙 **Theme Mode:** Use the Streamlit built-in theme switcher (top-right corner) to toggle Dark/Light Mode.")
+
