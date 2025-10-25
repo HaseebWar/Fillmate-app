@@ -5,10 +5,12 @@ import io
 import os
 from datetime import datetime
 
+# ----------------- PAGE CONFIG -----------------
 st.set_page_config(page_title="FillMate", layout="wide")
+st.title("🧠 FillMate — Smart Null Value Handler")
+st.markdown("Effortlessly detect and fill missing data in Excel files with advanced options.")
 
-# ========== Helper Functions ==========
-
+# ----------------- FUNCTIONS -----------------
 def fill_null_values(df, method):
     """Fill null values based on selected method."""
     if method == "Forward Fill":
@@ -46,16 +48,12 @@ def load_analytics():
 def download_excel(df):
     """Convert dataframe to Excel for download."""
     output = io.BytesIO()
-    with pd.ExcelWriter(output, engine='openpyxl') as writer:
+    with pd.ExcelWriter(output, engine='openpyxl') as writer:  # Using openpyxl for Streamlit compatibility
         df.to_excel(writer, index=False, sheet_name='FilledData')
     return output.getvalue()
 
-# ========== UI Layout ==========
-
-st.title("🧠 FillMate — Smart Null Value Handler")
-st.markdown("Effortlessly detect and fill missing data in Excel files with advanced options.")
-
-uploaded_file = st.file_uploader("Upload your Excel file", type=["xlsx", "xls", "csv"])
+# ----------------- FILE UPLOAD SECTION -----------------
+uploaded_file = st.file_uploader("📂 Upload your Excel or CSV file", type=["xlsx", "xls", "csv"])
 
 if uploaded_file:
     # Load data
@@ -69,7 +67,7 @@ if uploaded_file:
 
     # Detect nulls
     null_counts = df.isnull().sum()
-    total_nulls = null_counts.sum()
+    total_nulls = int(null_counts.sum())
 
     st.write(f"### ❌ Total Null Values: {total_nulls}")
     st.write("#### Columns with Nulls:")
@@ -83,7 +81,7 @@ if uploaded_file:
 
     if st.button("Apply Fill"):
         filled_df = fill_null_values(df, fill_method)
-        num_filled = filled_df.isnull().sum().sum()
+        num_filled = int(filled_df.isnull().sum().sum())
         save_analytics(total_nulls, num_filled, uploaded_file.name)
 
         st.success(f"✅ Null values filled using {fill_method}")
@@ -100,28 +98,29 @@ if uploaded_file:
         with col2:
             st.download_button("⬇️ Download Excel", data=excel_data, file_name="filled_data.xlsx")
 
-# ========== Analytics Dashboard ==========
+        # 🔄 Instant Analytics Update
+        st.markdown("---")
+        st.header("📈 FillMate Analytics Dashboard (Live Update)")
+        analytics_df = load_analytics()
 
+        if not analytics_df.empty:
+            st.dataframe(analytics_df)
+
+            total_files = len(analytics_df)
+            total_nulls_detected = int(analytics_df["total_nulls"].sum())
+            total_filled = int(analytics_df["total_filled"].sum())
+
+            col1, col2, col3 = st.columns(3)
+            col1.metric("Total Files Processed", total_files)
+            col2.metric("Total Nulls Detected", total_nulls_detected)
+            col3.metric("Total Nulls Filled", total_filled)
+
+            csv_report = analytics_df.to_csv(index=False).encode('utf-8')
+            st.download_button("📊 Download Analytics CSV", data=csv_report, file_name="fillmate_analytics.csv", mime="text/csv")
+        else:
+            st.info("No analytics data available yet. Upload and process some files to see insights!")
+
+# ----------------- FOOTER -----------------
 st.markdown("---")
-st.header("📈 FillMate Analytics Dashboard")
-
-analytics_df = load_analytics()
-
-if not analytics_df.empty:
-    st.dataframe(analytics_df)
-
-    st.metric("Total Files Processed", len(analytics_df))
-    st.metric("Total Nulls Detected", int(analytics_df["total_nulls"].sum()))
-    st.metric("Total Nulls Filled", int(analytics_df["total_filled"].sum()))
-
-    # Allow download of analytics report
-    csv_report = analytics_df.to_csv(index=False).encode('utf-8')
-    st.download_button("📊 Download Analytics CSV", data=csv_report, file_name="fillmate_analytics.csv", mime="text/csv")
-else:
-    st.info("No analytics data available yet. Upload and process some files to see insights!")
-
-# ========== Theme Toggle ==========
-
-st.markdown("---")
-st.markdown("🌙 **Theme Mode:** Use the Streamlit built-in theme switcher (top-right corner) to toggle Dark/Light Mode.")
-
+st.markdown("🌙 **Theme Mode:** Use the Streamlit theme switcher (top-right corner) to toggle Dark/Light Mode.")
+st.caption("Developed with ❤️ by Haseeb — Simplifying Data Cleaning")
