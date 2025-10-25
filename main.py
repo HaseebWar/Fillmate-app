@@ -4,11 +4,40 @@ import numpy as np
 import io
 import os
 from datetime import datetime
+import plotly.express as px
 
 # ----------------- PAGE CONFIG -----------------
 st.set_page_config(page_title="FillMate", layout="wide")
-st.title("🧠 FillMate — Smart Null Value Handler")
-st.markdown("Effortlessly detect and fill missing data in Excel files with advanced options.")
+
+# --- Theme Management ---
+if "theme" not in st.session_state:
+    st.session_state.theme = "light"
+
+# Theme colors
+def get_theme_colors():
+    if st.session_state.theme == "dark":
+        return {"bg": "#0e1117", "text": "#fafafa"}
+    else:
+        return {"bg": "#ffffff", "text": "#000000"}
+
+theme_colors = get_theme_colors()
+
+# --- Header with theme toggle ---
+col1, col2 = st.columns([9, 1])
+with col1:
+    st.markdown(
+        f"<h2 style='text-align:center; color:{theme_colors['text']};'>🧠 FillMate — Smart Null Value Handler</h2>",
+        unsafe_allow_html=True,
+    )
+with col2:
+    if st.button("🌙" if st.session_state.theme == "light" else "☀️"):
+        st.session_state.theme = "dark" if st.session_state.theme == "light" else "light"
+        st.rerun()
+
+st.markdown(
+    f"<p style='text-align:center; color:{theme_colors['text']}; font-size:16px;'>Effortlessly detect and fill missing data in Excel or CSV files with advanced options.</p>",
+    unsafe_allow_html=True,
+)
 
 # ----------------- FUNCTIONS -----------------
 def fill_null_values(df, method):
@@ -48,7 +77,7 @@ def load_analytics():
 def download_excel(df):
     """Convert dataframe to Excel for download."""
     output = io.BytesIO()
-    with pd.ExcelWriter(output, engine='openpyxl') as writer:  # Using openpyxl for Streamlit compatibility
+    with pd.ExcelWriter(output, engine='openpyxl') as writer:
         df.to_excel(writer, index=False, sheet_name='FilledData')
     return output.getvalue()
 
@@ -98,14 +127,12 @@ if uploaded_file:
         with col2:
             st.download_button("⬇️ Download Excel", data=excel_data, file_name="filled_data.xlsx")
 
-        # 🔄 Instant Analytics Update
+        # 🔄 Instant Analytics Update with Charts
         st.markdown("---")
         st.header("📈 FillMate Analytics Dashboard (Live Update)")
         analytics_df = load_analytics()
 
         if not analytics_df.empty:
-            st.dataframe(analytics_df)
-
             total_files = len(analytics_df)
             total_nulls_detected = int(analytics_df["total_nulls"].sum())
             total_filled = int(analytics_df["total_filled"].sum())
@@ -115,12 +142,42 @@ if uploaded_file:
             col2.metric("Total Nulls Detected", total_nulls_detected)
             col3.metric("Total Nulls Filled", total_filled)
 
-            csv_report = analytics_df.to_csv(index=False).encode('utf-8')
-            st.download_button("📊 Download Analytics CSV", data=csv_report, file_name="fillmate_analytics.csv", mime="text/csv")
+            # --- Visualization Charts ---
+            st.markdown("#### 📊 Analytics Overview")
+            chart_col1, chart_col2 = st.columns(2)
+
+            with chart_col1:
+                fig_bar = px.bar(
+                    analytics_df,
+                    x="file_name",
+                    y="total_nulls",
+                    color="total_nulls",
+                    title="Null Values per File"
+                )
+                fig_bar.update_layout(
+                    plot_bgcolor=theme_colors["bg"],
+                    paper_bgcolor=theme_colors["bg"],
+                    font=dict(color=theme_colors["text"])
+                )
+                st.plotly_chart(fig_bar, use_container_width=True)
+
+            with chart_col2:
+                fig_line = px.line(
+                    analytics_df,
+                    x="timestamp",
+                    y="total_filled",
+                    markers=True,
+                    title="Filled Values Over Time"
+                )
+                fig_line.update_layout(
+                    plot_bgcolor=theme_colors["bg"],
+                    paper_bgcolor=theme_colors["bg"],
+                    font=dict(color=theme_colors["text"])
+                )
+                st.plotly_chart(fig_line, use_container_width=True)
         else:
             st.info("No analytics data available yet. Upload and process some files to see insights!")
 
 # ----------------- FOOTER -----------------
 st.markdown("---")
-st.markdown("🌙 **Theme Mode:** Use the Streamlit theme switcher (top-right corner) to toggle Dark/Light Mode.")
 st.caption("Developed with ❤️ by Haseeb — Simplifying Data Cleaning")
